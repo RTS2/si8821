@@ -1,0 +1,68 @@
+
+
+This is the 2.6 driver. It works under 2.6.9-1.667smp.
+At one point it compiled under 2.4, but I never tried it so no promises.
+
+
+
+2.6:
+
+First edit the Makefile so that LINUXBUILD points at your built kernel:
+
+LINUXBUILD=/lib/modules/2.6.9-1.667smp/build/
+
+This is where Fedora Core 3 puts it.
+
+
+type 
+
+make
+
+then as root:
+
+/sbin/insmod si3097.ko  verbose=1 maxever=33554432
+
+or for 4.2
+
+edit Makefile.2.4
+
+change YOUR_RELEASE to the kernel build:
+
+YOUR_RELEASE=/export/jhagen/linux-2.4.32/linux-2.4.32
+
+/sbin/insmod si2097.o
+
+
+for either:
+
+./cfg will create the /dev entry by reading /proc/si3097
+
+
+Now the app.
+
+cd apps
+
+make test_app
+
+edit the file Test.cfg to be the cfg file that SI gives you 
+for your cameras. This defines the values you see for the I H L 
+commands.
+
+
+./test_app
+
+This lists the simple set of commands.
+
+Try I H and L and view the responses. This tests the uart code.
+
+Try "dma" this tests the dma. By default it sets up an 8000000 byte transfer,
+starts the dma, gives a C command and waits till done.
+
+...
+
+
+
+Jeff Hagen
+jhagen@as.arizona.edu
+
+
