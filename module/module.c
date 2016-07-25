@@ -121,7 +121,12 @@ ssize_t si_read_proc(struct file *filp, char *buffer, size_t length, loff_t *off
     d = d->next;
   }
 
-  if (copy_to_user (buffer, tb, bytes_read))
+  if (bytes_read >= *offset)
+    return 0;
+
+  bytes_read -= *offset;
+
+  if (copy_to_user (buffer, tb + *offset, bytes_read))
     return -EFAULT;
 
   return bytes_read;
@@ -256,7 +261,7 @@ const struct pci_device_id *id;
     wh++;
   }
 
-  if( !pci_set_dma_mask( pci, 0xffffffff ) ) {
+  if( pci_set_dma_mask( pci, 0xffffffff ) ) {
     printk("SI pci_dma_supported failed\n");
     return(-EIO);
   }
