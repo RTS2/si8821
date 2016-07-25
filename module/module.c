@@ -121,7 +121,7 @@ ssize_t si_read_proc(struct file *filp, char *buffer, size_t length, loff_t *off
     d = d->next;
   }
 
-  if (bytes_read >= *offset)
+  if (*offset >= bytes_read)
     return 0;
 
   bytes_read -= *offset;
