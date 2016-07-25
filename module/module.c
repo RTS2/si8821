@@ -100,8 +100,35 @@ MODULE_DEVICE_TABLE( pci, si_pci_tbl);
 
 static struct proc_dir_entry *si_proc;
 
-int si_read_proc(char *buf, char **start, off_t offset,  int len, 
-                                                  int *eof, void *private)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 4, 0)
+ssize_t si_read_proc(struct file *filp, char *buffer, size_t length, loff_t *offset)
+{
+  ssize_t bytes_read = 0;
+  struct SIDEVICE *d;
+  struct pci_dev *pci;
+  char tb[length];
+
+  d = si_devices;
+
+  while (d && bytes_read < length) {
+    pci = d->pci;
+    if (pci)
+    {
+      bytes_read +=snprintf (tb + bytes_read, length - bytes_read, "SI %s, major %d minor %d devfn %d irq %d isopen %d\n", pci_name(pci), si_major, d->minor, pci->devfn, pci->irq, atomic_read(&d->isopen)  );
+    } else {
+      bytes_read += snprintf (tb + bytes_read, length - bytes_read, "SI TEST major %d minor %d\n", si_major, d->minor);
+    }
+    d = d->next;
+  }
+
+  if (copy_to_user (buffer, tb, bytes_read))
+    return -EFAULT;
+
+  return bytes_read;
+}
+
+#else
+int si_read_proc(char *buf, char **start, off_t offset,  int len, int *eof, void *private)
 {
   struct SIDEVICE *d;
   struct pci_dev *pci;
@@ -128,7 +155,7 @@ int si_read_proc(char *buf, char **start, off_t offset,  int len,
 
   return len > offset ? len - offset : 0;
 }
-
+#endif
 
 /* The different file operations */
 
@@ -147,7 +174,7 @@ struct file_operations si_fops = {
     .release = si_close,      /* release */
 };
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 4, 0)
 struct file_operations si_procops = {
     .read = si_read_proc
 };
@@ -229,7 +256,7 @@ const struct pci_device_id *id;
     wh++;
   }
 
-  if( !pci_dma_supported( pci, 0xffffffff ) ) {
+  if( !pci_set_dma_mask( pci, 0xffffffff ) ) {
     printk("SI pci_dma_supported failed\n");
     return(-EIO);
   }
@@ -363,7 +390,7 @@ const struct pci_device_id *id;
       dev->bar[i] = (__u32) ioremap_nocache(
         pci_resource_start(pci,i), len );
 	    printk("SI address ptr %p\n",ioremap_nocache(pci_resource_start(pci,i), len));
-	    printk("SI address ptr %p\n",pci_resource_start(pci,i), len);
+	    printk("SI address ptr %p %d\n",pci_resource_start(pci,i), len);
     }
 
     if( dev->verbose)
@@ -372,10 +399,12 @@ const struct pci_device_id *id;
 
   if( pci->irq ) {
     if((error = request_irq( 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
        pci->irq, (void *)si_interrupt, SA_INTERRUPT|SA_SHIRQ, "SI", dev))){
-#else
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)
        pci->irq, (void *)si_interrupt, IRQF_DISABLED|IRQF_SHARED, "SI", dev))){
+#else
+       pci->irq, (void *)si_interrupt, IRQF_SHARED, "SI", dev))){
 #endif
        printk( "SI %s failed to get irq %d error %d\n", pci_name(pci),
             pci->irq, error);
@@ -690,11 +719,7 @@ int si_close(struct inode *inode, struct file *filp) /* close */
 /* si_read polls data from uart */
 /* si_read does not block */
 
-ssize_t si_read( filp, buf, count, off )
-struct file *filp;
-char __user *buf;
-size_t count;
-loff_t *off;
+ssize_t si_read(struct file *filp, char __user *buf, size_t count, loff_t *off )
 {
   struct SIDEVICE *dev;
   int i, blocking, ret;
