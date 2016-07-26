@@ -106,17 +106,21 @@ ssize_t si_read_proc(struct file *filp, char *buffer, size_t length, loff_t *off
   ssize_t bytes_read = 0;
   struct SIDEVICE *d;
   struct pci_dev *pci;
-  char tb[length];
+#define TBLEN  500
+  char tb[TBLEN];
+
+  if (*offset > TBLEN)
+    return 0;
 
   d = si_devices;
 
-  while (d && bytes_read < length) {
+  while (d && bytes_read < TBLEN) {
     pci = d->pci;
     if (pci)
     {
-      bytes_read +=snprintf (tb + bytes_read, length - bytes_read, "SI %s, major %d minor %d devfn %d irq %d isopen %d\n", pci_name(pci), si_major, d->minor, pci->devfn, pci->irq, atomic_read(&d->isopen)  );
+      bytes_read +=snprintf (tb + bytes_read, TBLEN - bytes_read, "SI %s, major %d minor %d devfn %d irq %d isopen %d\n", pci_name(pci), si_major, d->minor, pci->devfn, pci->irq, atomic_read(&d->isopen)  );
     } else {
-      bytes_read += snprintf (tb + bytes_read, length - bytes_read, "SI TEST major %d minor %d\n", si_major, d->minor);
+      bytes_read += snprintf (tb + bytes_read, TBLEN - bytes_read, "SI TEST major %d minor %d\n", si_major, d->minor);
     }
     d = d->next;
   }
@@ -262,7 +266,7 @@ const struct pci_device_id *id;
   }
 
   if( pci_set_dma_mask( pci, 0xffffffff ) ) {
-    printk("SI pci_dma_supported failed\n");
+    printk("SI pic_set_dma_mask failed\n");
     return(-EIO);
   }
 
